@@ -1,3 +1,3 @@
 # Battlestar-Galactica-game-2D
 
-![Image Alt text]("Battlestar-Galactica-game-2D/viper.png"))        
+![Image Alt text]("viper.png"))        
