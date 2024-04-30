@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        canvas {
+            border: 1px solid black;
+            background-color: #5673b1;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-image: url("https://wallbox.ru/resize/1280x800/wallpapers/main2/201744/150970748059fc4ed8b7f8d3.61083780.jpg");
+        }
+    </style>
+    <title>Battlestar Galactica</title>
+</head>
+<body onload="startGame()" style="background-color: rgb(29, 28, 28);">
+
+<h4 style="color: rgb(253, 0, 0); text-align: center;">Battlestar Galactica</h4>
+
+<script>
+
+var birinciOyuncu;
+var ikinciOyuncu;
+var birinciOyuncuBullets = []; // Birinci oyuncunun ateş nesnelerini saklayacak bir dizi
+var ikinciOyuncuBullets = []; // İkinci oyuncunun ateş nesnelerini saklayacak bir dizi
+
+function startGame() {
+    birinciOyuncu = new component(30, 30, "Cylon.png", 1260, 220,"image");
+    ikinciOyuncu = new component(30, 30, "viper.png", 10, 220,"image");
+    myGameArea.start();
+}
+var myGameArea = {
+    canvas: document.createElement("canvas"),
+    start: function() {
+        this.canvas.width = 1300;
+        this.canvas.height = 535;
+        this.context = this.canvas.getContext("2d");
+        document.body.insertBefore(this.canvas, document.body.childNodes[0]);
+        this.frameNo = 0;
+        this.interval = setInterval(updateGameArea, 20);
+        window.addEventListener('keydown', function(e) {
+            myGameArea.keys = (myGameArea.keys || []);
+            myGameArea.keys[e.keyCode] = (e.type == "keydown");
+            if (e.keyCode == 13) { // Enter tuşuna basıldığında birinci oyuncu ateş et
+                birinciOyuncu.fire();
+            } else if (e.keyCode == 32) { // Space tuşuna basıldığında ikinci oyuncu ateş et
+                ikinciOyuncu.fire();
+            }
+        });
+        window.addEventListener('keyup', function(e) {
+            myGameArea.keys[e.keyCode] = (e.type == "keydown");
+        });
+    },
+    clear: function() {
+        this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    },
+    stop: function() {
+        clearInterval(this.interval);
+    }
+}
+
+function component(width, height, color, x, y, type) {
+    this.gameare = myGameArea;
+    this.type = type;
+    if (type == "image") {
+        this.image = new Image();
+        this.image.src = color;
+    }
+    this.width = width;
+    this.height = height;
+    this.speedX = 0;
+    this.speedY = 0;
+    this.x = x;
+    this.y = y;
+    this.fire = function() {
+        if (this == birinciOyuncu) {
+            birinciOyuncuBullets.push(new bullet(2, 2, "blue", this.x, this.y, this.speedX, this.speedY));
+        } else if (this == ikinciOyuncu) {
+            ikinciOyuncuBullets.push(new bullet(2, 2, "red", this.x, this.y, this.speedX, this.speedY));
+        }
+    }
+    this.update = function() {
+        ctx = myGameArea.context;
+        ctx.save();
+        ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
+        // Yönü ayarla
+        if (this.speedX > 0) {
+            ctx.rotate(Math.PI);
+        } else if (this.speedX < 0) {
+            ctx.rotate(0);
+        } else if (this.speedY > 0) {
+            ctx.rotate(-Math.PI / 2);
+        } else if (this.speedY < 0) {
+            ctx.rotate(Math.PI / 2);
+        }
+        ctx.drawImage(this.image, -this.width / 2, -this.height / 2, this.width, this.height);
+        ctx.restore();
+    }
+    this.newPos = function() {
+        this.lastX = this.x; // Son pozisyonu güncelle
+        this.lastY = this.y; // Son pozisyonu güncelle
+        this.x += this.speedX;
+        this.y += this.speedY;
+    }
+}
+
+function bullet(width, height, color, x, y, speedX, speedY) {
+    this.width = width;
+    this.height = height;
+    this.speedX = speedX * 7; // Hızı artırmak için çarpan
+    this.speedY = speedY * 7; // Hızı artırmak için çarpan
+    this.x = x+15;
+    this.y = y+15;
+    this.update = function() {
+        ctx = myGameArea.context;
+        ctx.fillStyle = color;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+    }
+    this.newPos = function() {
+        this.x += this.speedX;
+        this.y += this.speedY;
+    }
+}
+
+function updateGameArea() {
+    myGameArea.clear();
+    birinciOyuncu.speedX = 0;
+    birinciOyuncu.speedY = 0;
+    ikinciOyuncu.speedX = 0;   
+    ikinciOyuncu.speedY = 0;
+    //1. oyuncu
+    if (myGameArea.keys && myGameArea.keys[37]) {birinciOyuncu.speedX = -1; }
+    if (myGameArea.keys && myGameArea.keys[39]) {birinciOyuncu.speedX = 1; }
+    if (myGameArea.keys && myGameArea.keys[38]) {birinciOyuncu.speedY = -1; }
+    if (myGameArea.keys && myGameArea.keys[40]) {birinciOyuncu.speedY = 1; }
+    //2. oyuncu
+    if (myGameArea.keys && myGameArea.keys[65]) {ikinciOyuncu.speedX = -1; }
+    if (myGameArea.keys && myGameArea.keys[68]) {ikinciOyuncu.speedX = 1; }
+    if (myGameArea.keys && myGameArea.keys[87]) {ikinciOyuncu.speedY = -1; }
+    if (myGameArea.keys && myGameArea.keys[83]) {ikinciOyuncu.speedY = 1; }
+    // Ateş nesnelerini güncelle
+    for (var i = 0; i < birinciOyuncuBullets.length; i++) {
+        birinciOyuncuBullets[i].newPos();
+        birinciOyuncuBullets[i].update();
+    }
+    for (var i = 0; i < ikinciOyuncuBullets.length; i++) {
+        ikinciOyuncuBullets[i].newPos();
+        ikinciOyuncuBullets[i].update();
+    }
+    // Oyuncuları güncelle
+    birinciOyuncu.newPos();
+    birinciOyuncu.update();
+    ikinciOyuncu.newPos();
+    ikinciOyuncu.update();
+}
+    
+</script>
+</body>
+</html>
