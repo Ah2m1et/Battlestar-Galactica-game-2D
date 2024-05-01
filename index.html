@@ -13,25 +13,86 @@
             transform: translate(-50%, -50%);
             background-image: url("https://wallbox.ru/resize/1280x800/wallpapers/main2/201744/150970748059fc4ed8b7f8d3.61083780.jpg");
         }
+        .health-bar {
+            width: 100px;
+            height: 20px;
+            background-color: black;
+            position: absolute;
+        }
+        .health-fill {
+            height: 100%;
+            background-color: green;
+        }
+        #welcomeScreen {
+            text-align: center;
+            margin-top: 50px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        #poster {
+            width: 500px;
+            height: auto;
+            margin-bottom: 2px;
+        }
     </style>
     <title>Battlestar Galactica</title>
 </head>
-<body onload="startGame()" style="background-color: rgb(29, 28, 28);">
+<body style="background-color: rgb(0, 0, 0);">
 
-<h4 style="color: rgb(253, 0, 0); text-align: center;">Battlestar Galactica</h4>
+<h2 style="color: rgb(184, 34, 34); text-align: center;">Battlestar Galactica</h2>
+
+<div class="health-bar" style="top: 10px; left: 10px;">
+    <div id="ikinciOyuncuHealth" class="health-fill" style="width: 100%;"></div>
+</div>
+
+<div class="health-bar" style="top: 10px; right: 10px;">
+    <div id="birinciOyuncuHealth" class="health-fill" style="width: 100%;"></div>
+</div>
+
+<div id="welcomeScreen">
+    <img id="poster" src="poster.jpg" alt="Oyun Poster">
+    <p style="color: bisque;">Düşmanını ve Asteroidleri yok et! Oyunu oynamak için aşağıdaki tuşları kullanın:</p>
+    <p style="color: #5673b1;">Mavi Oyuncu (koloniler): A (Sol), D (Sağ), W (Yukarı), S (Aşağı), Enter (Ateş Et)</p>
+    <p style="color: brown;">Kırmızı Oyuncu (saylonlar): Yön tuşları ile hareket et, Space (Ateş Et)</p>
+    <button onclick="startGame()">Oyuna Başla</button>
+</div>
+
+
+<div style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);">
+    <button onclick="window.location.reload();">Yeniden Oyna</button>
+</div>
+
 
 <script>
 
 var birinciOyuncu;
 var ikinciOyuncu;
+var birinciOyuncuHealth = 100;  
+var ikinciOyuncuHealth = 100;
 var birinciOyuncuBullets = []; // Birinci oyuncunun ateş nesnelerini saklayacak bir dizi
 var ikinciOyuncuBullets = []; // İkinci oyuncunun ateş nesnelerini saklayacak bir dizi
+var birinciOyuncuIsabet = 0;
+var ikinciOyuncuIsabet = 0;
+var birinciOyuncuSkor = 0; // Birinci oyuncunun skoru
+var ikinciOyuncuSkor = 0; // İkinci oyuncunun skoru
+var myMusic;
+var asteroidler = [];
+var gameOver = false;
+
 
 function startGame() {
+
     birinciOyuncu = new component(30, 30, "Cylon.png", 1260, 220,"image");
     ikinciOyuncu = new component(30, 30, "viper.png", 10, 220,"image");
+    myMusic = new sound("Prelude-to-War.mp3");
+    myMusic.play();
+    createAsteroids(25);
     myGameArea.start();
+    document.getElementById('welcomeScreen').style.display = 'none'; // Karşılama ekranını gizle
 }
+
 var myGameArea = {
     canvas: document.createElement("canvas"),
     start: function() {
@@ -62,6 +123,22 @@ var myGameArea = {
     }
 }
 
+function drawScores() {
+    ctx = myGameArea.context;
+    ctx.fillStyle = "white";
+    ctx.font = "20px Arial";
+    ctx.fillText("Koloniler: " + birinciOyuncuSkor, 10, 30);
+    ctx.fillText("Saylonlar: " + ikinciOyuncuSkor, myGameArea.canvas.width - 150, 30);
+}
+
+function updateScores() {
+    birinciOyuncuSkor = birinciOyuncuIsabet * 10; // Her isabet için 10 puan
+    ikinciOyuncuSkor = ikinciOyuncuIsabet * 10; // Her isabet için 10 puan
+
+}
+
+updateScores();
+
 function component(width, height, color, x, y, type) {
     this.gameare = myGameArea;
     this.type = type;
@@ -75,36 +152,66 @@ function component(width, height, color, x, y, type) {
     this.speedY = 0;
     this.x = x;
     this.y = y;
+    // Yeni özellik: Son hareket yönü
+    this.lastMoveDirection = { x: 0, y: 0 }; // Başlangıçta 0,0 olarak tanımlanır
     this.fire = function() {
         if (this == birinciOyuncu) {
-            birinciOyuncuBullets.push(new bullet(2, 2, "blue", this.x, this.y, this.speedX, this.speedY));
+            birinciOyuncuBullets.push(new bullet(3, 3, "red", this.x, this.y, this.speedX, this.speedY));
         } else if (this == ikinciOyuncu) {
-            ikinciOyuncuBullets.push(new bullet(2, 2, "red", this.x, this.y, this.speedX, this.speedY));
+            ikinciOyuncuBullets.push(new bullet(3, 3, "blue", this.x, this.y, this.speedX, this.speedY));
         }
     }
-    this.update = function() {
-        ctx = myGameArea.context;
-        ctx.save();
-        ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
-        // Yönü ayarla
-        if (this.speedX > 0) {
+// Gemilerin update() fonksiyonunda kontrolü güncelliyoruz
+this.update = function() {
+    ctx = myGameArea.context;
+    ctx.save();
+    ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
+
+    // Eğer gemi hareket etmiyorsa, son hareket yönüne göre döndür
+    if (this.speedX === 0 && this.speedY === 0) {
+        if (this.lastMoveDirection.x < 0) {
             ctx.rotate(Math.PI);
-        } else if (this.speedX < 0) {
+        } else if (this.lastMoveDirection.x > 0) {
             ctx.rotate(0);
-        } else if (this.speedY > 0) {
+        } else if (this.lastMoveDirection.y < 0) {
             ctx.rotate(-Math.PI / 2);
-        } else if (this.speedY < 0) {
+        } else if (this.lastMoveDirection.y > 0) {
             ctx.rotate(Math.PI / 2);
         }
-        ctx.drawImage(this.image, -this.width / 2, -this.height / 2, this.width, this.height);
-        ctx.restore();
+    } else { // Hareket halindeyken geminin dönüşünü ayarla
+        if (this.speedX > 0 && this.speedY < 0) { // Sağa ve yukarıya hareket
+            ctx.rotate(3 * Math.PI / 4);
+        } else if (this.speedX < 0 && this.speedY < 0) { // Sola ve yukarıya hareket
+            ctx.rotate(Math.PI / 4);
+        } else if (this.speedX < 0 && this.speedY > 0) { // Sola ve aşağıya hareket
+            ctx.rotate(-Math.PI / 4);
+        } else if (this.speedX > 0 && this.speedY > 0) { // Sağa ve aşağıya hareket
+            ctx.rotate(-3*Math.PI / 4);
+        } else if (this.speedX > 0) { // Sağa hareket
+            ctx.rotate(Math.PI);
+        } else if (this.speedX < 0) { // Sola hareket
+            ctx.rotate(0);
+        } else if (this.speedY > 0) { // Aşağıya hareket
+            ctx.rotate(-Math.PI / 2);
+        } else if (this.speedY < 0) { // Yukarıya hareket
+            ctx.rotate(Math.PI / 2);
+        }
     }
-    this.newPos = function() {
-        this.lastX = this.x; // Son pozisyonu güncelle
-        this.lastY = this.y; // Son pozisyonu güncelle
-        this.x += this.speedX;
-        this.y += this.speedY;
-    }
+    ctx.drawImage(this.image, -this.width / 2, -this.height / 2, this.width, this.height);
+    ctx.restore();
+}
+
+
+// Gemilerin newPos() fonksiyonunda son hareket yönünü güncelliyoruz
+this.newPos = function() {
+    this.lastX = this.x;
+    this.lastY = this.y;
+    this.x += this.speedX;
+    this.y += this.speedY;
+    // Yön bilgisini güncelle
+    this.lastMoveDirection.x = this.speedX;
+    this.lastMoveDirection.y = this.speedY;
+}     
 }
 
 function bullet(width, height, color, x, y, speedX, speedY) {
@@ -125,7 +232,121 @@ function bullet(width, height, color, x, y, speedX, speedY) {
     }
 }
 
+function checkCollisions() {
+    // Birinci oyuncunun mermileri için çarpışmayı kontrol et
+    for (var i = 0; i < birinciOyuncuBullets.length; i++) {
+        // İkinci oyuncuya çarpışmayı kontrol et
+        if (birinciOyuncuBullets[i].x < ikinciOyuncu.x + ikinciOyuncu.width &&
+            birinciOyuncuBullets[i].x + birinciOyuncuBullets[i].width > ikinciOyuncu.x &&
+            birinciOyuncuBullets[i].y < ikinciOyuncu.y + ikinciOyuncu.height &&
+            birinciOyuncuBullets[i].y + birinciOyuncuBullets[i].height > ikinciOyuncu.y) {
+            birinciOyuncuIsabet++;
+            document.getElementById("ikinciOyuncuHealth").style.width = (100 - birinciOyuncuIsabet) + "%";
+            if (birinciOyuncuIsabet >= 100) {
+                gameOver = true;
+                alert("saylonlar kazandı!");
+                return;
+            }
+            birinciOyuncuBullets.splice(i, 1); // Çarpışma olduğunda mermiyi sil
+            return;
+        }
+
+        // Asteroidlere çarpışmayı kontrol et
+        for (var j = 0; j < asteroidler.length; j++) {
+            if (birinciOyuncuBullets[i].x < asteroidler[j].x + asteroidler[j].width &&
+                birinciOyuncuBullets[i].x + birinciOyuncuBullets[i].width > asteroidler[j].x &&
+                birinciOyuncuBullets[i].y < asteroidler[j].y + asteroidler[j].height &&
+                birinciOyuncuBullets[i].y + birinciOyuncuBullets[i].height > asteroidler[j].y) {
+                birinciOyuncuBullets.splice(i, 1); // Çarpışma olduğunda mermiyi sil
+                birinciOyuncuSkor += 50; // Her asteroid vurulduğunda 50 puan ekle
+                if (asteroidler[j].health <= 0) {
+                    asteroidler.splice(j, 1); // Asteroidi sil
+                } else {
+                    asteroidler[j].health -= 100;
+                }
+                return;
+            }
+        }
+    }
+
+    // İkinci oyuncunun mermileri için çarpışmayı kontrol et
+    for (var i = 0; i < ikinciOyuncuBullets.length; i++) {
+        // Birinci oyuncuya çarpışmayı kontrol et
+        if (ikinciOyuncuBullets[i].x < birinciOyuncu.x + birinciOyuncu.width &&
+            ikinciOyuncuBullets[i].x + ikinciOyuncuBullets[i].width > birinciOyuncu.x &&
+            ikinciOyuncuBullets[i].y < birinciOyuncu.y + birinciOyuncu.height &&
+            ikinciOyuncuBullets[i].y + ikinciOyuncuBullets[i].height > birinciOyuncu.y) {
+            ikinciOyuncuIsabet++;
+            document.getElementById("birinciOyuncuHealth").style.width = (100 - ikinciOyuncuIsabet) + "%";
+            if (ikinciOyuncuIsabet >= 100) {
+                gameOver = true;
+                alert("koloniler kazandı!");
+                return;
+            }
+            ikinciOyuncuBullets.splice(i, 1); // Çarpışma olduğunda mermiyi sil
+            return;
+        }
+
+        // Asteroidlere çarpışmayı kontrol et
+        for (var j = 0; j < asteroidler.length; j++) {
+            if (ikinciOyuncuBullets[i].x < asteroidler[j].x + asteroidler[j].width &&
+                ikinciOyuncuBullets[i].x + ikinciOyuncuBullets[i].width > asteroidler[j].x &&
+                ikinciOyuncuBullets[i].y < asteroidler[j].y + asteroidler[j].height &&
+                ikinciOyuncuBullets[i].y + ikinciOyuncuBullets[i].height > asteroidler[j].y) {
+                ikinciOyuncuBullets.splice(i, 1); // Çarpışma olduğunda mermiyi sil
+                ikinciOyuncuSkor += 50; // Her asteroid vurulduğunda 50 puan ekle
+                if (asteroidler[j].health <= 0) {
+                    asteroidler.splice(j, 1); // Asteroidi sil
+                } else {
+                    asteroidler[j].health -= 100;
+                }
+                return;
+            }
+        }
+    }
+}
+
+function asteroid(width, height, color, x, y,health, type) {
+    this.width = width;
+    this.height = height;
+    this.health = health;
+    this.type = type;
+    if (type == "image") {
+        this.image = new Image();
+        this.image.src = color;
+    }
+    this.x = x;
+    this.y = y;
+    this.update = function() {
+    ctx = myGameArea.context;
+    if (this.type === "image") {
+        ctx.drawImage(this.image, this.x - this.width / 2, this.y - this.height / 2, this.width, this.height);
+    } else {
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.width, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+}
+
+function createAsteroids(count) {
+    for (var i = 0; i < count; i++) {
+        var size = getRandomSize();
+        var x = Math.floor(Math.random() * 1300);
+        var y = Math.floor(Math.random() * 535);
+        var health = Math.floor(size *100);
+        asteroidler.push(new asteroid(size, size, "asteroid.png", x, y, health, "image"));
+    }
+}   
+
+function getRandomSize() {
+    return Math.floor(Math.random() * 20) + 10; // Rastgele bir boyut seç
+}
+
 function updateGameArea() {
+    if (gameOver) return;
     myGameArea.clear();
     birinciOyuncu.speedX = 0;
     birinciOyuncu.speedY = 0;
@@ -150,13 +371,37 @@ function updateGameArea() {
         ikinciOyuncuBullets[i].newPos();
         ikinciOyuncuBullets[i].update();
     }
+    // Asteroidleri güncelle
+    for (var i = 0; i < asteroidler.length; i++) {
+        asteroidler[i].update();
+    }
     // Oyuncuları güncelle
     birinciOyuncu.newPos();
     birinciOyuncu.update();
     ikinciOyuncu.newPos();
     ikinciOyuncu.update();
+    // Çarpışmaları kontrol et
+    checkCollisions();
+    // Skorları güncelle ve ekrana yazdır
+    updateScores();
+    drawScores();
 }
-    
+
+function sound(src) {
+    this.sound = document.createElement("audio");
+    this.sound.src = src;
+    this.sound.setAttribute("preload", "auto");
+    this.sound.setAttribute("controls", "none");
+    this.sound.style.display = "none";
+    document.body.appendChild(this.sound);
+    this.play = function(){
+        this.sound.play();
+    }
+    this.stop = function(){
+        this.sound.pause();
+    }    
+}
+
 </script>
 </body>
 </html>
