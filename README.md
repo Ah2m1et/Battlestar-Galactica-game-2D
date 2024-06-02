@@ -49,7 +49,7 @@ Saylonların uzay gemisi Raider
 
 Bu proje JavaScript ve HTML5 Canvas kullanılarak geliştirilmiştir. Projeyi geliştirmek için aşağıdaki adımları izleyin:
 
-1. Projeyi klonlayın: `git clone https://github.com/kullanici_adi/proje_adı.git`
+1. Projeyi klonlayın: `git clone github.com/Ah2m1et/Battlestar-Galactica-game-2D.git`
 2. Kodu düzenleyin ve değişiklikleri yapın.
 3. Değişiklikleri commit edin: `git commit -m "Yapılan değişikliklerin açıklaması"`
 4. Değişiklikleri GitHub'a gönderin: `git push origin master`
